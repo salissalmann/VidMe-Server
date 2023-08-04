@@ -50,7 +50,7 @@ const CreateAccount = async (Req, Res) => {
             LastName : Req.body.LastName,
             Email: Req.body.Email,
             Password: Req.body.Password,
-            Phone : Req.body.Phone.AddedUser,
+            Phone : Req.body.Phone,
             ProfileLink: userLink,
         })
         const AddedUser = await SaveUser.save();
