@@ -19,12 +19,13 @@ const VidMe_User = new Schema(
         {   type: String, required: false },
         Followers:
         {   type: Array, required: false },
-        Following:
-        {   type: Array, required: false },
         Video:
-        {   type: Array, required: false },
+        {   type: String, required: false },
         Requests:
         {
+            type: Array,
+        },
+        Posts:{
             type: Array,
         },
         ProfileLink:
@@ -34,6 +35,7 @@ const VidMe_User = new Schema(
         ProfileStatus:
         {
             type: String,
+            default: "0%"
         },
         timestamp: 
         {

@@ -16,8 +16,9 @@ app.use(cors(
         origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],        
     }
 ));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.json({ limit: '1000mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1000mb' }));
+
 routes(app);  
 
 mongoose.set('strictQuery', true);
@@ -38,36 +39,56 @@ var bodyParser = require('body-parser')
 var jsonParser = bodyParser.json()
 const GetToken = require('./Middleware/GetToken')
 
-app.post('/information-step1' , GetToken , jsonParser, async (req,res) => {
-  try
-  {
+app.post('/api/seeker/profile', GetToken, jsonParser, async (req, res) => {
+  try {
     const User = await UserModel.findOne({ _id: req.user.id });
-    if(!User)
-    {
-      return res.status(400).json({ Success: false , Error: "User Not Found"});
+    
+    if (!User) {
+      return res.status(400).json({ Success: false, Error: "User Not Found" });
     }
+
     User.ProfileStatus = "33%";
-    const AddedUser = await User.save();
-    const SaveUserInformation = new UserInformation({
+    await User.save();
+
+    const filter = { Email: User.Email };
+    const update = {
       Email: User.Email,
       WantedJob: req.body.WantedJob,
-      Gender : req.body.Gender,
-      DOB : req.body.DOB,
+      Gender: req.body.Gender,
+      DOB: req.body.DOB,
       Nationality: req.body.Nationality,
       City: req.body.City,
       Country: req.body.Country,
       ProfessionalSummary: req.body.ProfessionalSummary,
-    })
-    const AddedUserInformation = await SaveUserInformation.save();
-    res.status(200).send({ Success: true , AddedUserInformation });
-  } catch (error) {
-    res.status(404).json({ Error: error });
-  }
-})
+    };
 
-app.post('/information-step2' , GetToken , jsonParser, async (req,res) => {
+    const options = {
+      upsert: true,
+      new: true, 
+    };
+
+    const updatedUserInformation = await UserInformation.findOneAndUpdate(filter, update, options);
+    
+    if (updatedUserInformation) {
+      console.log(updatedUserInformation);
+      return res.status(200).json({ Success: true, Message: "User Information Updated Successfully" });
+    }
+
+    const SaveUserInformation = new UserInformation(update);
+    const addedUserInformation = await SaveUserInformation.save();
+    
+    res.status(200).json({ Success: true, AddedUserInformation: addedUserInformation });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ Error: 'An error occurred' });
+  }
+});
+
+
+app.post('/api/seeker/profile/professional' , GetToken , jsonParser, async (req,res) => {
   try
   {
+    console.log(req.body)
     const User = await UserModel.findOne({ _id: req.user.id });
     if(!User)
     {
@@ -90,7 +111,7 @@ app.post('/information-step2' , GetToken , jsonParser, async (req,res) => {
   }
 })
 
-app.post('/information-step3' , GetToken , jsonParser, async (req,res) => {
+app.post('/api/seeker/profile/personal' , GetToken , jsonParser, async (req,res) => {
   try
   {
     const User = await UserModel.findOne({ _id: req.user.id });
@@ -109,6 +130,7 @@ app.post('/information-step3' , GetToken , jsonParser, async (req,res) => {
     CurrentUserInfo.Projects = req.body.Projects;
     CurrentUserInfo.Languages = req.body.Languages;
     CurrentUserInfo.SocialLinks = req.body.SocialLinks;
+    CurrentUserInfo.Certifications = req.body.Certifications;
     const AddedUserInformation = await CurrentUserInfo.save();
     res.status(200).send({ Success: true , AddedUserInformation });
   }
@@ -116,6 +138,9 @@ app.post('/information-step3' , GetToken , jsonParser, async (req,res) => {
     res.status(404).json({ Error: error });
   }
 })
+
+app.use(bodyParser.json({ limit: '1000mb' })); // Adjust the limit to your needs
+app.use(bodyParser.urlencoded({ extended: true, limit: '1000mb' })); 
 
 
 
@@ -139,38 +164,60 @@ app.post('/add-video', GetToken , jsonParser, async (req,res) => {
   }
 })
 
+    
+const nlp = require('compromise');
+nlp.extend(require('compromise-numbers'));
 
 app.post('/create-post' , GetToken , jsonParser, async (req,res) => {
   try
   {
     const User = await UserModel.findOne({ _id: req.user.id });
+
     if(!User)
     {
       return res.status(400).json({ Success: false , Error: "User Not Found"});
     }
-    const ExtractKeywords = req.body.PostText.split(" ");
-    const Keywords = [];
-    for (let i = 0; i < ExtractKeywords.length; i++) {
-      const element = ExtractKeywords[i];
-      if(element.length>4)
-      {
-        Keywords.push(element);
-      }
+
+    const PostText = req.body.PostText;
+    const doc = nlp(PostText);
+        
+    const keywords = doc
+        .nouns()
+        .concat(doc.adjectives().filter(adj => adj.text() !== 'working'))
+        .out('array')
+        .map(word => word.toLowerCase()); 
+
+    let Keywords = []
+    Keywords.push(
+      ...keywords
+    ) 
+    Keywords = Keywords.filter(keyword => keyword.length >= 3);
+    
+
+    const Link = "https://premedpk-cdn.sgp1.digitaloceanspaces.com/Notes/58b112b9-23dd-49f9-a41c-8d6bc4ea3f91.png"
+
+    let Attachments = []
+    Attachments.push(
+        Link
+    )
+    if(req.body.Attachments)
+    {
+      Attachments = req.body.Attachments;
     }
+
     const SavePost = new PostModel({
       Email: User.Email,
       UserLink: User.ProfileLink,
       PostText: req.body.PostText,
-      PostImage: req.body.PostImage,
-      PostVideo: req.body.PostVideo,
-      Keywords: Keywords,      
+      Attachments: Attachments,
+      Keywords: Keywords,
   })
   const AddedPost = await SavePost.save();
-  res.status(200).send({ Success: true , AddedPost });
+  res.status(200).send({ Success: true, Message:"Post Created Successfully" });
   }
   catch (error)
   {
-    res.status(404).json({ Error: error });
+    res.status(404).json({ Error: error , Success: false, Message: "Post Creation Failed"});
   }
 })
 

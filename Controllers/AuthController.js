@@ -7,34 +7,34 @@ const UserLogin = async (Req, Res) => {
   try {
       let UserFound = await User.findOne({ Email: Req.body.Email});
       if (!UserFound) {
-          return Res.status(400).json({ Success: false, Error: "Enter Correct Email/Password" });
+          return Res.status(400).json({ Success: false, Message:"Enter Correct Email/Password" });
       }
       const ComparePassword = await bcrypt.compare(Req.body.Password , UserFound.Password);
       if (!ComparePassword)
       {
-          return Res.status(400).json({ Success: false , Error: "Enter Correct Email/Password"});     
+          return Res.status(400).json({ Success: false , Message: "Enter Correct Email/Password" });
       }
 
       const Data = { user: { id: UserFound.id } };
       const AuthToken = jwt.sign(Data, SECRET_KEY);
 
       UserFound = await User.findOne({ email: Req.body.email}).select("-password")
-
-      Res.json({ Success: true, AuthToken: AuthToken  , UserFound});
+      let ProfileStatus = UserFound.ProfileStatus 
+      console.log(ProfileStatus)
+      Res.json({ Success: true, AuthToken: AuthToken , Message: "User Logged In Successfully" , ProfileStatus });
   } catch (error) {
-      return Res.status(400).json({ Error: "An Error Occured" });
+      return Res.status(400).json({ Error: "An Error Occured" , Message: "An Error Occured" ,});
   }
 };
+
 const { v4: uuidv4 } = require('uuid');
-
-
 const CreateAccount = async (Req, Res) => {
     try 
     {
         const AlreadyExsists = await User.find({Email:Req.body.Email})
         if(AlreadyExsists.length > 0)
         {
-            return Res.status(400).json({ Success: false , Error: "Email Already Exsists"});
+            return Res.status(400).json({ Success: false , Message: "Email Already Exsists"});
         }
 
 
@@ -54,9 +54,12 @@ const CreateAccount = async (Req, Res) => {
             ProfileLink: userLink,
         })
         const AddedUser = await SaveUser.save();
-        Res.status(200).send({ Success: true , AddedUser }); 
+        Res.status(200).send({ Success: true , 
+            Message: "User Created Successfully" ,
+        }); 
     } catch (error) {
-        Res.status(404).json({ Error: error });
+        Res.status(404).json({ Error: error ,
+            Message: "An Error Occured"});
     }
 }
 

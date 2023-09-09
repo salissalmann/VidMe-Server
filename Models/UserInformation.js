@@ -18,6 +18,7 @@ const VidMe_User = new Schema(
         Projects: { type: Object  },
         Languages: { type: Array },
         SocialLinks: { type: Array },
+        Certifications: { type: Array,},
         timestamp:
         {
             type: Date,
@@ -25,3 +26,6 @@ const VidMe_User = new Schema(
         },
     }
 );
+
+const UserInformation = mongoose.model('UserInformation' , VidMe_User);
+module.exports = UserInformation;

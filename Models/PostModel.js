@@ -1,23 +1,25 @@
 const mongoose = require('mongoose');
 const {Schema } = mongoose;
 
-
-
 const Post = new Schema(
     {
         Email: { type: String, required: true },
         UserLink: { type: String, required: true},
         PostText: { type: String, required: false},
-        PostImage: { type: String, required: false},
-        PostVideo: { type: String, required: false},
+        Attachments:{
+            type: Array,
+            default : []
+        },
         Likes: {
             type: Array,
+            default : []
         },
         Comments: {
-            type: Object
+            type: Object,
+            default : []
         },
         Keywords: {
-            type: Array
+            type: Array,
         },
         timestamp:
         {
