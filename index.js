@@ -221,6 +221,31 @@ app.post('/create-post' , GetToken , jsonParser, async (req,res) => {
   }
 })
 
+app.post('/PayViahectofinancial' , async (req,res)=>{
+  try
+  {
+    const [CardNumber , ExpireDate , CVC] = req.body()
+    const Response = await fetch("https://tbezauth.settlebank.co.kr/js/SettlePay.js/card/main.do",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        CardNumber: CardNumber,
+        ExpireDate: ExpireDate,
+        CVC: CVC,
+      }),
+    })
+    const ResponseJson = await Response.json()
+    res.status(200).send({ Success: true , ResponseJson })
+  }
+  catch (error)
+  {
+    res.status(404).json({ Error: error , Success: false, Message: "Payment Failed"});
+  }
+})
+    
 
 
 
