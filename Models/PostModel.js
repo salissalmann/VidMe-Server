@@ -15,7 +15,7 @@ const Post = new Schema(
             default : []
         },
         Comments: {
-            type: Object,
+            type: Array,
             default : []
         },
         Keywords: {
@@ -28,5 +28,5 @@ const Post = new Schema(
         },
     }
 );
-const Posts = mongoose.model('Posts' , Post);
+const Posts = mongoose.model('Post' , Post);
 module.exports = Posts;
