@@ -18,7 +18,6 @@ app.use(cors(
 ));
 app.use(express.json({ limit: '1000mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1000mb' }));
-
 routes(app);  
 
 mongoose.set('strictQuery', true);
@@ -46,12 +45,8 @@ app.post('/api/seeker/profile', GetToken, jsonParser, async (req, res) => {
     if (!User) {
       return res.status(400).json({ Success: false, Error: "User Not Found" });
     }
-
-    User.ProfileStatus = "33%";
-    await User.save();
-
     const filter = { Email: User.Email };
-    const update = {
+    const update = {  
       Email: User.Email,
       WantedJob: req.body.WantedJob,
       Gender: req.body.Gender,
@@ -68,7 +63,12 @@ app.post('/api/seeker/profile', GetToken, jsonParser, async (req, res) => {
     };
 
     const updatedUserInformation = await UserInformation.findOneAndUpdate(filter, update, options);
-    
+    User.ProfileStatus = "33%";
+    console.log( req.body.ProfilePicture)
+    User.ProfilePicture = req.body.ProfilePicture,
+
+    await User.save();
+
     if (updatedUserInformation) {
       console.log(updatedUserInformation);
       return res.status(200).json({ Success: true, Message: "User Information Updated Successfully" });
@@ -88,7 +88,6 @@ app.post('/api/seeker/profile', GetToken, jsonParser, async (req, res) => {
 app.post('/api/seeker/profile/professional' , GetToken , jsonParser, async (req,res) => {
   try
   {
-    console.log(req.body)
     const User = await UserModel.findOne({ _id: req.user.id });
     if(!User)
     {
@@ -111,40 +110,107 @@ app.post('/api/seeker/profile/professional' , GetToken , jsonParser, async (req,
   }
 })
 
-app.post('/api/seeker/profile/personal' , GetToken , jsonParser, async (req,res) => {
-  try
-  {
+const nlp = require('compromise');
+nlp.extend(require('compromise-numbers'));
+
+app.post('/api/seeker/profile/personal', GetToken, jsonParser, async (req, res) => {
+  try {
     const User = await UserModel.findOne({ _id: req.user.id });
-    if(!User)
-    {
-      return res.status(400).json({ Success: false , Error: "User Not Found"});
+
+    if (!User) {
+      return res.status(400).json({ Success: false, Error: "User Not Found" });
     }
-    User.ProfileStatus = "99%";
-    const AddedUser = await User.save();
+
+       
     const CurrentUserInfo = await UserInformation.findOne({ Email: User.Email });
-    if(!CurrentUserInfo)
-    {
-      return res.status(400).json({ Success: false , Error: "User Information Not Found"});
+    if (!CurrentUserInfo) {
+      return res.status(400).json({ Success: false, Error: "User Information Not Found" });
     }
-    CurrentUserInfo.Education = req.body.Education;
     CurrentUserInfo.Projects = req.body.Projects;
-    CurrentUserInfo.Languages = req.body.Languages;
-    CurrentUserInfo.SocialLinks = req.body.SocialLinks;
+    CurrentUserInfo.Education = req.body.Education;
     CurrentUserInfo.Certifications = req.body.Certifications;
-    const AddedUserInformation = await CurrentUserInfo.save();
-    res.status(200).send({ Success: true , AddedUserInformation });
-  }
-  catch (error) {
+    CurrentUserInfo.Languages = req.body.Languages;
+
+    const AddedUserInformation = await CurrentUserInfo.save();    
+
+    const fieldKeywords = [
+      CurrentUserInfo.WantedJob,
+      CurrentUserInfo.ProfessionalSummary,
+    ];
+
+
+    for (const employment of CurrentUserInfo.EmploymentHistory) {
+      fieldKeywords.push(employment.jobTitle, employment.employer, employment.description);
+    }
+
+    for (const education of CurrentUserInfo.Education) {
+      fieldKeywords.push(education.institution, education.description);
+    }
+
+    for (const project of CurrentUserInfo.Projects) {
+      fieldKeywords.push(project.ProjectTitle, project.description);
+    }
+
+    for ( const skill of CurrentUserInfo.Skills)
+    {
+      fieldKeywords.push(skill)
+    }
+
+    for ( const interest of CurrentUserInfo.Interests)
+    {
+      fieldKeywords.push(interest)
+    }
+
+    for ( const lang of CurrentUserInfo.Languages)
+    {
+      fieldKeywords.push(lang)
+    }
+
+    for ( const cert of CurrentUserInfo.Certifications)
+    {
+      fieldKeywords.push(cert.Certification)
+    }
+
+    fieldKeywords.push(
+      CurrentUserInfo.Nationality
+    );
+
+  const keywords = fieldKeywords
+    .flatMap((field) => {
+      const doc = nlp(field);
+      const nouns = doc.nouns().out('array');
+      const adjectives = doc.adjectives().out('array').filter((adj) => adj.toLowerCase() !== 'working');
+      return [...nouns, ...adjectives];
+    })
+    .map((word) => word.toLowerCase())
+    .filter((keyword) => keyword.length >= 3);
+
+    let Keywords = []
+    Keywords.push(
+      ...keywords
+     ) 
+
+        console.log(
+      "Keywords:",
+      Keywords
+    )
+
+
+    User.Keywords = keywords;
+
+    User.ProfileStatus = "99%";
+    await User.save();
+
+    res.status(200).send({ Success: true, AddedUserInformation });
+  } catch (error) {
     res.status(404).json({ Error: error });
   }
-})
-
-app.use(bodyParser.json({ limit: '1000mb' })); // Adjust the limit to your needs
-app.use(bodyParser.urlencoded({ extended: true, limit: '1000mb' })); 
+});
 
 
 
-app.post('/add-video', GetToken , jsonParser, async (req,res) => {
+
+app.post('/api/seeker/profile/video', GetToken , jsonParser, async (req,res) => {
   try
   {
     const User = await UserModel.findOne({ _id: req.user.id });
@@ -153,9 +219,9 @@ app.post('/add-video', GetToken , jsonParser, async (req,res) => {
       return res.status(400).json({ Success: false , Error: "User Not Found"});
     }
     User.ProfileStatus = "100%";
-    const AddedUser = await User.save();
-    User.Video.push(req.body.Video);
+    User.Video = "https://premedpk-cdn.sgp1.cdn.digitaloceanspaces.com/Videos/00e7060f-ed0e-41b8-8f5f-c0d94eaedc6c.mp4"    
     const AddedUserInformation = await User.save();
+    
     res.status(200).send({ Success: true , AddedUserInformation });
   }
   catch (error) 
@@ -165,9 +231,6 @@ app.post('/add-video', GetToken , jsonParser, async (req,res) => {
 })
 
     
-const nlp = require('compromise');
-nlp.extend(require('compromise-numbers'));
-
 app.post('/create-post' , GetToken , jsonParser, async (req,res) => {
   try
   {

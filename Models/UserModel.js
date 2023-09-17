@@ -37,6 +37,9 @@ const VidMe_User = new Schema(
             type: String,
             default: "0%"
         },
+        Keywords:{
+            type: Array,
+        },
         timestamp: 
         {
             type: Date,

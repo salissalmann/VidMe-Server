@@ -5,8 +5,9 @@ const SECRET_KEY = "ThisIsVidMeUser";
 
 const UserLogin = async (Req, Res) => {
   try {
-      console.log(Req.body)
+
       let UserFound = await User.findOne({ Email: Req.body.Email});
+      console.log(UserFound)
       if (!UserFound) {
           return Res.status(400).json({ Success: false, Message:"Enter Correct Email/Password" });
       }
@@ -19,10 +20,6 @@ const UserLogin = async (Req, Res) => {
       const Data = { user: { id: UserFound.id } };
       const AuthToken = jwt.sign(Data, SECRET_KEY);
 
-      UserFound = await User.findOne({ email: Req.body.email}).select("-password")
-      console.log(
-        UserFound
-      )
       let ProfileStatus = UserFound.ProfileStatus 
       console.log(ProfileStatus)
       Res.json({ Success: true, AuthToken: AuthToken , Message: "User Logged In Successfully" , ProfileStatus });
