@@ -35,9 +35,47 @@ Database_Connection()
 const UserInformation = require('./Models/UserInformation')
 const UserModel = require('./Models/UserModel')
 const PostModel = require('./Models/PostModel')
+const Conversation = require('./Models/Conversation');
+const Message = require("./Models/Message");
 var bodyParser = require('body-parser')
 var jsonParser = bodyParser.json()
 const GetToken = require('./Middleware/GetToken')
+
+const io = require("socket.io")(5050, {
+  cors: {
+    origin: "http://localhost:3000",
+  },
+});
+
+let users = [];
+io.on("connection", (socket) => {
+  socket.on('addUser', userId => {
+    const Exists = users.some(user => user.userId === userId);
+    if (!Exists) {
+      users.push({ id: socket.id, userId: userId });
+      io.emit('getUsers', users);
+    }
+  });
+
+  //send and get message
+  socket.on('sendMessage', ({ MessageId, SenderId, text, Reciever }) => {
+    const user = users.find(user => user.userId === Reciever);
+    if (user) {
+      io.to(user.id).emit('getMessage', {
+        MessageId,
+        SenderId,
+        text,
+        Reciever
+      });
+    }
+  });
+
+  //disconnect
+  socket.on('disconnect', () => {
+    users = users.filter(user => user.id !== socket.id);
+    io.emit('getUsers', users);
+  });
+});
 
 app.post('/api/seeker/profile', GetToken, jsonParser, async (req, res) => {
   try {
@@ -246,7 +284,140 @@ app.post('/PayViahectofinancial' , async (req,res)=>{
   }
 })
     
+//----------------------------------------------------------------------------------//
+app.post('/api/initiate', async (req, res) => {
+  try {
+    const {
+      SenderId,
+      RecieverId
+    } = req.body;
 
+    const newData = new Message({
+      SenderId,
+      RecieverId,
+    });
+
+    await newData.save();
+    res.status(200).json({ message: "Data saved successfully" });
+  } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
+
+app.post('/api/FindConnection', async (req, res) => {
+  try {
+    const { Id } = req.body;
+    const aggregationPipeline = [
+      {
+        $match: {
+          $or: [
+            { SenderId: Id },
+            { RecieverId: Id },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          documents: { $push: '$$ROOT' },
+        },
+      },
+    ];
+    const user = await Message.aggregate(aggregationPipeline);
+    if (user.length === 0) {
+      return res.status(200).json({ message: 'User not found' });
+    }
+    else {
+      const ret = [];
+
+      const promises = user[0].documents.map(async (temp) => {
+        if (temp.SenderId === Id) {
+          const user = await UserModel.findById(temp.RecieverId, 'FirstName LastName img');
+          return { _id: temp._id, user };
+        } else if (temp.RecieverId === Id) {
+          const user = await UserModel.findById(temp.SenderId, 'FirstName LastName img');
+          return { _id: temp._id, user };
+        }
+      });
+
+      Promise.all(promises)
+        .then((results) => {
+          ret.push(...results);
+          res.status(200).json(ret);
+        })
+        .catch((error) => {
+          console.error('Error:', error);
+        });
+    }
+  } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
+
+app.post('/api/Conversation', async (req, res) => {
+  try {
+    const { MessageId, SenderId, text } = req.body;
+
+    const user = await Conversation.findOne({ MessageId: req.body.MessageId });
+    if (user) {
+      const currentDate = new Date();
+      user.content.push({ SenderId, text, currentDate });
+      await user.save();
+      res.status(200).json({ message: "Data saved successfully" });
+    } else {
+      const currentDate = new Date();
+
+      const newData = new Conversation({
+        MessageId,
+        content: [{ SenderId, text, currentDate }],
+      });
+
+      await newData.save();
+      res.status(200).json({ message: "New Object Created successfully" });
+    }
+  } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
+
+// Write api to get Conversation based on MessageId
+app.post('/api/FindConversation', async (req, res) => {
+  try {
+    const { MessageId } = req.body;
+    const user = await Conversation.find({ MessageId });
+    if (user.length === 0) {
+      return res.status(200).json({ message: 'User not found' });
+    }
+    const Id = user[0].SenderId;
+    // const userInfo = await UserModel.findById(Id);
+    // console.log(userInfo);
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
+
+app.post('/api/FindUser', async (req, res) => {
+  try {
+    const User = await UserModel.findById(req.body.Id);
+    if (User) {
+      res.status(200).json(User);
+    }
+  } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
+
+app.post('/api/FindUserInfo', async (req, res) => {
+  try {
+    const User = await UserModel.find({Email: req.body.Email});
+    if (User) {
+      res.status(200).json(User);
+    }
+  } catch (error) {
+    res.status(400).json({ message: error });
+  }
+});
 
 
 
