@@ -42,7 +42,7 @@ const GetToken = require('./Middleware/GetToken')
 
 const io = require("socket.io")(5050, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "*",
   },
 });
 
@@ -56,6 +56,11 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on('RemoveUser', userId => {
+    users = users.filter(user => user.userId !== userId);
+    io.emit('getUsers', users);
+  });
+
   //send and get message
   socket.on('sendMessage', ({ MessageId, SenderId, text, Reciever }) => {
     const user = users.find(user => user.userId === Reciever);
@@ -67,12 +72,6 @@ io.on("connection", (socket) => {
         Reciever
       });
     }
-  });
-
-  //disconnect
-  socket.on('disconnect', () => {
-    users = users.filter(user => user.id !== socket.id);
-    io.emit('getUsers', users);
   });
 });
 
