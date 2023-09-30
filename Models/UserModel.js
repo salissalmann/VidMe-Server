@@ -21,6 +21,8 @@ const VidMe_User = new Schema(
         {   type: Array, required: false },
         Video:
         {   type: String, required: false },
+        EmailVerified:
+        {   type: Boolean, default: false, required: false },
         Requests:
         {
             type: Array,
